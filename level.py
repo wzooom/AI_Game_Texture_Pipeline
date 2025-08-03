@@ -1,21 +1,21 @@
 import pygame
 from settings import *
 import os
-import pygame
 import random
-from sprites import Platform, Enemy, LootChest, HealthPickup
-from settings import *
+from sprites import Platform, Enemy, LootChest, HealthPickup, Door
 from texture_generator import TextureGenerator
 from pixel_lab_integration import PixelLabIntegration
 
 class Level:
-    def __init__(self, level_num):
+    def __init__(self, level_num, is_boss_room=False):
         self.level_num = level_num
+        self.is_boss_room = is_boss_room
         self.platforms = pygame.sprite.Group()
         self.enemies = pygame.sprite.Group()
         self.chests = pygame.sprite.Group()
         self.health_pickups = pygame.sprite.Group()
-        self.width = 3200  # Longer level width
+        self.doors = pygame.sprite.Group()
+        self.width = 3200 if not is_boss_room else 1600  # Boss rooms are smaller
         self.height = WINDOW_HEIGHT
         
         # Player movement capabilities for platform accessibility validation
@@ -145,31 +145,102 @@ class Level:
         
         return textures
     
-    def create_level(self, level_num):
+    def create_level(self, level_num, is_boss_room=False):
         """Create a level with the specified number"""
         # Clear existing sprites
         self.platforms.empty()
         self.enemies.empty()
         self.chests.empty()
         self.health_pickups.empty()
+        self.doors.empty()
+        
+        # Set boss room flag
+        self.is_boss_room = is_boss_room
         
         # Load textures for this level
         textures = self.load_level_textures(level_num)
         
         # Create the requested level
-        if level_num == 1:
-            platforms, enemies, chests, health_pickups, background = self.create_level1(textures)
-        elif level_num == 2:
-            platforms, enemies, chests, health_pickups, background = self.create_level2(textures)
-        elif level_num == 3:
-            platforms, enemies, chests, health_pickups, background = self.create_level3(textures)
+        if is_boss_room:
+            # Create boss room for the specified level
+            platforms, enemies, chests, health_pickups, background = self.create_boss_room(level_num, textures)
         else:
-            platforms, enemies, chests, health_pickups, background = self.create_level1(textures)  # Default to level 1
+            # Create regular level
+            if level_num == 1:
+                platforms, enemies, chests, health_pickups, door, background = self.create_level1(textures)
+            elif level_num == 2:
+                platforms, enemies, chests, health_pickups, door, background = self.create_level2(textures)
+            elif level_num == 3:
+                platforms, enemies, chests, health_pickups, door, background = self.create_level3(textures)
+            else:
+                platforms, enemies, chests, health_pickups, door, background = self.create_level1(textures)  # Default to level 1
         
         # Validate and fix platform accessibility
         self.validate_and_fix_platforms(level_num)
         
-        return platforms, enemies, chests, health_pickups, background
+        if is_boss_room:
+            return platforms, enemies, chests, health_pickups, pygame.sprite.Group(), background
+        else:
+            return platforms, enemies, chests, health_pickups, door, background
+        
+    def create_boss_room(self, level_num, textures=None):
+        """Create a boss room for the specified level"""
+        # Boss rooms are smaller and focused on the boss fight
+        self.width = 1600
+        
+        # Create ground
+        ground = Platform(0, WINDOW_HEIGHT - 50, self.width, 50)
+        if textures and "platform" in textures:
+            ground.set_texture(textures["platform"])
+        self.platforms.add(ground)
+        
+        # Add some platforms for movement variety
+        platform_positions = [
+            # Side platforms
+            (200, 400, 200, 20),
+            (1200, 400, 200, 20),
+            # Middle platform
+            (700, 350, 200, 20)
+        ]
+        
+        for x, y, width, height in platform_positions:
+            platform = Platform(x, y, width, height)
+            if textures and "platform" in textures:
+                platform.set_texture(textures["platform"])
+            self.platforms.add(platform)
+        
+        # Create a boss enemy based on the level
+        boss_x = self.width // 2
+        boss_y = WINDOW_HEIGHT - 100
+        boss = Enemy(boss_x, boss_y, None, "boss")
+        if textures and "boss" in textures:
+            boss.set_texture(textures["boss"])
+        self.enemies.add(boss)
+        
+        # Add a few health pickups for the boss fight
+        health_pickup_positions = [
+            (300, 350),
+            (1300, 350),
+            (800, 300)
+        ]
+        
+        for x, y in health_pickup_positions:
+            health_pickup = HealthPickup(x, y)
+            self.health_pickups.add(health_pickup)
+        
+        # Set background texture
+        background = None
+        if textures and "background" in textures:
+            background = textures["background"]
+        
+        # Add a door at the end of the level on the final platform
+        # Final platform is at (3000, 300, 150, 20)
+        door_x = 3050  # Center of the final platform
+        door_y = 300 + 80  # Position door so its bottom sits on platform (Door class subtracts 80)
+        door = Door(door_x, door_y)
+        self.doors.add(door)
+        
+        return self.platforms, self.enemies, self.chests, self.health_pickups, self.doors, background
         
     def validate_and_fix_platforms(self, level_num):
         """Check if all platforms are accessible and fix any that aren't"""
@@ -233,32 +304,32 @@ class Level:
             self.platforms.add(ground)
             platforms.append(ground)
         
-        # Create platforms - now spanning the entire longer level
+        # Create platforms - now spanning the entire longer level with proper clearance
         platform_positions = [
-            # Starting area - create a path upward
-            (100, 400, 200, 20),
-            (400, 300, 200, 20),
-            (200, 200, 200, 20),
+            # Starting area - create a path upward with 80+ pixel spacing
+            (100, 420, 200, 20),   # Raised from 400 to 420
+            (400, 320, 200, 20),   # Raised from 300 to 320  
+            (200, 220, 200, 20),   # Raised from 200 to 220
             
             # Middle section - create a zigzag pattern with proper spacing
-            (650, 350, 150, 20),
-            (850, 250, 150, 20),
-            (1050, 350, 150, 20),
-            (1250, 450, 150, 20),
-            (1450, 350, 150, 20),
-            (1650, 250, 150, 20),
+            (650, 380, 150, 20),   # Raised from 350 to 380
+            (850, 280, 150, 20),   # Raised from 250 to 280
+            (1050, 380, 150, 20),  # Raised from 350 to 380
+            (1250, 470, 150, 20),  # Raised from 450 to 470
+            (1450, 380, 150, 20),  # Raised from 350 to 380
+            (1650, 280, 150, 20),  # Raised from 250 to 280
             
             # Challenging section - create stepping stones with proper spacing
-            (1900, 400, 100, 20),
-            (2050, 350, 100, 20),
-            (2200, 300, 100, 20),
-            (2350, 250, 100, 20),
-            (2500, 300, 100, 20),
-            (2650, 350, 100, 20),
-            (2800, 400, 100, 20),
+            (1900, 420, 100, 20),  # Raised from 400 to 420
+            (2050, 370, 100, 20),  # Raised from 350 to 370
+            (2200, 320, 100, 20),  # Raised from 300 to 320
+            (2350, 270, 100, 20),  # Raised from 250 to 270
+            (2500, 320, 100, 20),  # Raised from 300 to 320
+            (2650, 370, 100, 20),  # Raised from 350 to 370
+            (2800, 420, 100, 20),  # Raised from 400 to 420
             
             # Final section
-            (3000, 300, 150, 20)
+            (3000, 320, 150, 20)   # Raised from 300 to 320
         ]
         
         # Create platform objects
@@ -301,29 +372,11 @@ class Level:
                 enemy.set_texture(textures["enemy"])
             self.enemies.add(enemy)
         
-        # Add loot chests throughout the level
-        chest_positions = [
-            # Starting area chests
-            (200, 380),
-            (400, 280),
-            
-            # Middle section chests
-            (800, 380),
-            (1200, 280),
-            (1600, 380),
-            
-            # Challenging section chests
-            (2000, 280),
-            (2400, 380),
-            
-            # Final section chests
-            (2800, 280),
-            (3100, 380)
-        ]
-        
-        for x, y in chest_positions:
-            chest = LootChest(x, y)
-            self.chests.add(chest)
+        # Add one loot chest next to the door
+        chest_x = 3000  # Left side of the door (door is at 3050)
+        chest_y = 380   # Same level as door platform
+        chest = LootChest(chest_x, chest_y)
+        self.chests.add(chest)
             
         # Add health pickups strategically placed in challenging areas
         health_pickup_positions = [
@@ -347,7 +400,14 @@ class Level:
         if textures and "background" in textures:
             background = textures["background"]
         
-        return self.platforms, self.enemies, self.chests, self.health_pickups, background
+        # Add a door at the end of the level on the final platform
+        # Final platform is at (3000, 350, 150, 20)
+        door_x = 3050  # Center of the final platform
+        door_y = 350 + 80  # Position door so its bottom sits on platform (Door class subtracts 80)
+        door = Door(door_x, door_y)
+        self.doors.add(door)
+        
+        return self.platforms, self.enemies, self.chests, self.health_pickups, self.doors, background
     
     def create_level2(self, textures=None):
         """Create the second level with platforms, enemies and chests"""
@@ -368,39 +428,39 @@ class Level:
             self.platforms.add(ground)
             platforms.append(ground)
         
-        # Create platforms - more complex layout for level 2 with vertical challenges
+        # Create platforms - more complex layout for level 2 with proper clearance
         platform_positions = [
-            # Starting area - ascending platforms
-            (100, 450, 150, 20),
-            (300, 400, 150, 20),
-            (500, 350, 150, 20),
+            # Starting area - ascending platforms with 80+ pixel spacing
+            (100, 470, 150, 20),   # Raised from 450 to 470
+            (300, 420, 150, 20),   # Raised from 400 to 420
+            (500, 370, 150, 20),   # Raised from 350 to 370
             
             # First gap challenge
-            (700, 300, 80, 20),
-            (900, 350, 80, 20),
+            (700, 320, 80, 20),    # Raised from 300 to 320
+            (900, 370, 80, 20),    # Raised from 350 to 370
             
             # Middle section - zigzag platforms
-            (1100, 400, 120, 20),
-            (1300, 350, 120, 20),
-            (1500, 300, 120, 20),
-            (1700, 250, 120, 20),
-            (1900, 300, 120, 20),
+            (1100, 420, 120, 20),  # Raised from 400 to 420
+            (1300, 370, 120, 20),  # Raised from 350 to 370
+            (1500, 320, 120, 20),  # Raised from 300 to 320
+            (1700, 270, 120, 20),  # Raised from 250 to 270
+            (1900, 320, 120, 20),  # Raised from 300 to 320
             
             # Advanced section - floating islands
-            (2100, 350, 100, 20),
-            (2250, 300, 100, 20),
-            (2400, 250, 100, 20),
-            (2550, 200, 100, 20),
-            (2700, 250, 100, 20),
-            (2850, 300, 100, 20),
+            (2100, 370, 100, 20),  # Raised from 350 to 370
+            (2250, 320, 100, 20),  # Raised from 300 to 320
+            (2400, 270, 100, 20),  # Raised from 250 to 270
+            (2550, 220, 100, 20),  # Raised from 200 to 220
+            (2700, 270, 100, 20),  # Raised from 250 to 270
+            (2850, 320, 100, 20),  # Raised from 300 to 320
             
             # Vertical challenge section
-            (2200, 450, 80, 20),
-            (2400, 400, 80, 20),
-            (2600, 450, 80, 20),
+            (2200, 470, 80, 20),   # Raised from 450 to 470
+            (2400, 420, 80, 20),   # Raised from 400 to 420
+            (2600, 470, 80, 20),   # Raised from 450 to 470
             
             # Final approach
-            (3000, 350, 150, 20)
+            (3000, 370, 150, 20)   # Raised from 350 to 370
         ]
         
         level_platforms = []
@@ -436,7 +496,7 @@ class Level:
             (2750, 210, level_platforms[14]),
             
             # Final approach enemy
-            (3050, 310, level_platforms[20])
+            (3050, 310, level_platforms[19])  # Fixed: use last platform (index 19)
         ]
         
         for x, y, platform in enemy_positions:
@@ -447,32 +507,13 @@ class Level:
             enemy.health = 75
             self.enemies.add(enemy)
         
-        # Add loot chests throughout the extended level
-        chest_positions = [
-            # Starting area chests
-            (150, 430),  # Near first platform
-            (350, 380),  # Near second platform
-            (550, 330),  # Near third platform
-            
-            # Middle section chests
-            (900, 330),   # After first gap
-            (1200, 380),  # Middle zigzag
-            (1600, 280),  # End of zigzag
-            
-            # Advanced section chests
-            (2150, 330),  # Floating islands
-            (2450, 230),  # Higher platforms
-            (2700, 230),  # Last floating island
-            
-            # Final approach chest
-            (3050, 330)   # Final platform
-        ]
-        
-        for x, y in chest_positions:
-            chest = LootChest(x, y)
-            # Level 2 chests have better loot
-            chest.loot_value = random.randint(30, 80)
-            self.chests.add(chest)
+        # Add one loot chest next to the door (matching level 1 pattern)
+        chest_x = 2950  # Left side of the door (door is at 3000)
+        chest_y = 330   # Same level as door platform
+        chest = LootChest(chest_x, chest_y)
+        # Level 2 chest has better loot
+        chest.loot_value = random.randint(30, 80)
+        self.chests.add(chest)
             
         # Add health pickups in strategic locations
         health_pickup_positions = [
@@ -496,7 +537,14 @@ class Level:
         if textures and "background" in textures:
             background = textures["background"]
         
-        return self.platforms, self.enemies, self.chests, self.health_pickups, background
+        # Add a door at the end of the level on the final platform
+        # Final platform is at (3050, 300, 80, 20)
+        door_x = 3050  # Center of the final platform
+        door_y = 300 + 80  # Position door so its bottom sits on platform (Door class subtracts 80)
+        door = Door(door_x, door_y)
+        self.doors.add(door)
+        
+        return self.platforms, self.enemies, self.chests, self.health_pickups, self.doors, background
     
     def create_level3(self, textures=None):
         """Create the third level with platforms, enemies, chests and a boss"""
@@ -520,53 +568,53 @@ class Level:
         
         # Create platforms - most complex layout for level 3
         platform_positions = [
-            # Starting area - vertical challenge
-            (100, 500, 100, 20),
-            (250, 450, 100, 20),
-            (400, 400, 100, 20),
-            (250, 350, 100, 20),
-            (100, 300, 100, 20),
+            # Starting area - vertical challenge with proper clearance
+            (100, 500, 100, 20),   # Keep at 500 (good spacing from ground)
+            (250, 450, 100, 20),   # Keep at 450 (50 pixel gap - acceptable)
+            (400, 420, 100, 20),   # Raised from 400 to 420
+            (250, 370, 100, 20),   # Raised from 350 to 370
+            (100, 320, 100, 20),   # Raised from 300 to 320
             
             # First gap crossing
-            (550, 350, 80, 20),
-            (650, 300, 80, 20),
+            (550, 370, 80, 20),    # Raised from 350 to 370
+            (650, 320, 80, 20),    # Raised from 300 to 320
             
             # First island platforms
-            (750, 400, 100, 20),
-            (850, 350, 100, 20),
-            (950, 300, 100, 20),
+            (750, 420, 100, 20),   # Raised from 400 to 420
+            (850, 370, 100, 20),   # Raised from 350 to 370
+            (950, 320, 100, 20),   # Raised from 300 to 320
             
             # Second gap crossing - harder
-            (1050, 250, 60, 20),
-            (1130, 200, 60, 20),
+            (1050, 270, 60, 20),   # Raised from 250 to 270
+            (1130, 220, 60, 20),   # Raised from 200 to 220
             
             # Second island - zigzag up
-            (1250, 250, 80, 20),
-            (1350, 300, 80, 20),
-            (1450, 250, 80, 20),
+            (1250, 270, 80, 20),   # Raised from 250 to 270
+            (1350, 320, 80, 20),   # Raised from 300 to 320
+            (1450, 270, 80, 20),   # Raised from 250 to 270
             
             # Third gap crossing - even harder
-            (1550, 200, 50, 20),
-            (1620, 150, 50, 20),
-            (1690, 200, 50, 20),
+            (1550, 220, 50, 20),   # Raised from 200 to 220
+            (1620, 170, 50, 20),   # Raised from 150 to 170
+            (1690, 220, 50, 20),   # Raised from 200 to 220
             
             # Third island - vertical challenge
-            (1750, 300, 80, 20),
-            (1850, 250, 80, 20),
-            (1950, 200, 80, 20),
-            (2050, 250, 80, 20),
-            (2150, 300, 80, 20),
+            (1750, 320, 80, 20),   # Raised from 300 to 320
+            (1850, 270, 80, 20),   # Raised from 250 to 270
+            (1950, 220, 80, 20),   # Raised from 200 to 220
+            (2050, 270, 80, 20),   # Raised from 250 to 270
+            (2150, 320, 80, 20),   # Raised from 300 to 320
             
             # Final approach
-            (2350, 350, 60, 20),
-            (2450, 300, 60, 20),
-            (2550, 250, 60, 20),
-            (2650, 300, 60, 20),
+            (2350, 370, 60, 20),   # Raised from 350 to 370
+            (2450, 320, 60, 20),   # Raised from 300 to 320
+            (2550, 270, 60, 20),   # Raised from 250 to 270
+            (2650, 320, 60, 20),   # Raised from 300 to 320
             
             # Boss arena platforms
-            (2900, 400, 200, 20),  # Boss platform
-            (2850, 300, 80, 20),    # Upper platforms for player
-            (3050, 300, 80, 20)
+            (2900, 420, 200, 20),  # Raised from 400 to 420
+            (2850, 320, 80, 20),   # Raised from 300 to 320
+            (3050, 320, 80, 20)    # Raised from 300 to 320
         ]
         
         level_platforms = []
@@ -636,50 +684,13 @@ class Level:
         boss.rect.y = 320  # Position on the platform
         self.enemies.add(boss)
         
-        # Add loot chests throughout the extended level
-        chest_positions = [
-            # Starting area chests
-            (130, 480),  # First platform
-            (250, 430),  # Second platform
-            (400, 380),  # Third platform
-            
-            # First gap crossing chests
-            (600, 330),  # Gap platform
-            
-            # First island chests
-            (800, 380),  # First island platform
-            (950, 280),  # Higher platform
-            
-            # Second island chests
-            (1300, 230),  # Second island platform
-            (1450, 230),  # Zigzag platform
-            
-            # Third island chests - better rewards
-            (1800, 280),  # Third island platform
-            (2000, 180),  # Higher platform
-            
-            # Final approach chests - best rewards
-            (2400, 330),  # Approach platform
-            (2600, 230),  # Higher platform
-            
-            # Boss arena chest - special reward
-            (3000, 380)   # Special chest near boss
-        ]
-        
-        for i, (x, y) in enumerate(chest_positions):
-            chest = LootChest(x, y)
-            # Level 3 chests have best loot
-            if i < 8:  # First half of chests
-                chest.loot_value = random.randint(50, 80)
-            elif i < 12:  # Second half of chests (better rewards)
-                chest.loot_value = random.randint(70, 100)
-            else:  # Final approach chests
-                chest.loot_value = random.randint(90, 120)
-                
-            # Special chest near boss has guaranteed high value
-            if i == len(chest_positions) - 1:  # Last chest is special
-                chest.loot_value = 200
-            self.chests.add(chest)
+        # Add one loot chest next to the door (matching level 1 pattern)
+        chest_x = 2950  # Left side of the door (door is at 3000)
+        chest_y = 380   # Same level as door platform
+        chest = LootChest(chest_x, chest_y)
+        # Level 3 chest has best loot
+        chest.loot_value = random.randint(90, 120)
+        self.chests.add(chest)
         
         # Add health pickups in strategic locations for level 3
         health_pickup_positions = [
@@ -713,4 +724,11 @@ class Level:
         if textures and "background" in textures:
             background = textures["background"]
         
-        return self.platforms, self.enemies, self.chests, self.health_pickups, background
+        # Add a door at the end of the level on the final platform
+        # Final platform is at (3050, 300, 80, 20)
+        door_x = 3050  # Center of the final platform
+        door_y = 300 + 80  # Position door so its bottom sits on platform (Door class subtracts 80)
+        door = Door(door_x, door_y)
+        self.doors.add(door)
+        
+        return self.platforms, self.enemies, self.chests, self.health_pickups, self.doors, background

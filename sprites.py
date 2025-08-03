@@ -131,15 +131,24 @@ class Player(pygame.sprite.Sprite):
         """Perform a melee attack that hits enemies in close range"""
         if self.melee_cooldown == 0:
             self.melee_cooldown = 30  # Half a second cooldown
-            # Create attack rectangle in front of player based on facing direction
-            attack_rect = pygame.Rect(self.rect.x - 40 if not self.facing_right else self.rect.right, 
-                                      self.rect.y, 
-                                      40, 
-                                      self.rect.height)
+            
+            # Create attack area that includes player area and extends in facing direction
+            attack_width = 60  # Wider attack area
+            attack_height = self.rect.height + 20  # Slightly taller
+            
+            if self.facing_right:
+                # Attack area starts from player center and extends right
+                attack_x = self.rect.centerx - 20  # Include part of player area
+                attack_rect = pygame.Rect(attack_x, self.rect.y - 10, attack_width, attack_height)
+            else:
+                # Attack area extends left from player center
+                attack_x = self.rect.centerx - attack_width + 20  # Include part of player area
+                attack_rect = pygame.Rect(attack_x, self.rect.y - 10, attack_width, attack_height)
             
             enemies_hit = 0
             for enemy in enemies:
-                if attack_rect.colliderect(enemy.rect):
+                # Check both attack rectangle collision AND direct overlap with player
+                if attack_rect.colliderect(enemy.rect) or self.rect.colliderect(enemy.rect):
                     if enemy.take_damage(self.melee_damage):
                         self.score += enemy.score_value  # Score based on enemy type
                         enemies_hit += 1
@@ -278,21 +287,42 @@ class Enemy(pygame.sprite.Sprite):
     def update(self, player):
         # Basic AI: move back and forth on platform
         if self.platform:
-            if self.rect.right >= self.platform.rect.right:
-                self.direction = -1
-            elif self.rect.left <= self.platform.rect.left:
-                self.direction = 1
-                
-            self.rect.x += self.vel_x * self.direction
-        
-        # Update enemy direction based on player position for more intelligent attacks
-        if player.rect.centerx < self.rect.centerx:
-            self.direction = -1
-        else:
-            self.direction = 1
+            # Calculate distance to player
+            distance_to_player = abs(self.rect.centerx - player.rect.centerx)
             
-        # Attack player if close
-        if abs(self.rect.x - player.rect.x) < self.attack_range and abs(self.rect.y - player.rect.y) < 50:
+            # Only move towards player if they're far enough away (maintain minimum distance)
+            min_distance = 80  # Minimum distance to maintain from player
+            
+            if distance_to_player > min_distance:
+                # Move towards player but at reduced speed for lag effect
+                if player.rect.centerx < self.rect.centerx:
+                    self.direction = -1
+                    # Only move if not at platform edge
+                    if self.rect.left > self.platform.rect.left:
+                        self.rect.x += (self.vel_x * 0.7) * self.direction  # 70% speed for lag
+                else:
+                    self.direction = 1
+                    # Only move if not at platform edge
+                    if self.rect.right < self.platform.rect.right:
+                        self.rect.x += (self.vel_x * 0.7) * self.direction  # 70% speed for lag
+            else:
+                # If too close, back away slightly
+                if player.rect.centerx < self.rect.centerx and self.rect.right < self.platform.rect.right:
+                    self.direction = 1
+                    self.rect.x += (self.vel_x * 0.3)  # Slow backing away
+                elif player.rect.centerx > self.rect.centerx and self.rect.left > self.platform.rect.left:
+                    self.direction = -1
+                    self.rect.x += (self.vel_x * 0.3) * self.direction  # Slow backing away
+            
+            # Ensure enemy stays on platform
+            if self.rect.right >= self.platform.rect.right:
+                self.rect.right = self.platform.rect.right
+            elif self.rect.left <= self.platform.rect.left:
+                self.rect.left = self.platform.rect.left
+            
+        # Attack player if in range but not too close
+        attack_distance = 60  # Slightly larger attack range
+        if distance_to_player <= attack_distance and abs(self.rect.y - player.rect.y) < 50:
             self.melee_attack(player)
         
         # Reduce attack cooldown
@@ -399,6 +429,34 @@ class LootChest(pygame.sprite.Sprite):
                 self.image = self.opened_image
             return self.loot_value
         return 0
+
+class Door(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        super().__init__()
+        self.image = pygame.Surface((50, 80))
+        self.image.fill((139, 69, 19))  # Brown door
+        
+        # Add door details
+        pygame.draw.rect(self.image, (101, 67, 33), (5, 5, 40, 70))  # Door panel
+        pygame.draw.circle(self.image, (255, 215, 0), (40, 40), 5)  # Gold doorknob
+        
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y - 80  # Position door so bottom is at ground level
+        self.activated = False  # Door is locked until all enemies are defeated
+        
+    def activate(self):
+        """Unlock the door when all enemies are defeated"""
+        self.activated = True
+        # Change door color to indicate it's unlocked
+        self.image.fill((160, 120, 40))  # Lighter brown/gold for unlocked door
+        pygame.draw.rect(self.image, (120, 90, 30), (5, 5, 40, 70))  # Door panel
+        pygame.draw.circle(self.image, (255, 255, 0), (40, 40), 5)  # Brighter doorknob
+        
+    def is_player_nearby(self, player):
+        """Check if player is close enough to interact with the door"""
+        return abs(self.rect.centerx - player.rect.centerx) < 50 and \
+               abs(self.rect.bottom - player.rect.bottom) < 30
 
 class Camera:
     def __init__(self, width, height):
