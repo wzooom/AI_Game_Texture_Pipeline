@@ -1,0 +1,50 @@
+{
+  "base_style": "pixel art, 16-bit style, game asset",
+  "themes": {
+    "medieval_fantasy": {
+      "name": "Medieval Fantasy",
+      "description": "A mystical medieval world with castles, knights, and magic"
+    },
+    "sci_fi": {
+      "name": "Sci-Fi Futuristic",
+      "description": "A high-tech futuristic world with neon lights and cyberpunk elements"
+    },
+    "desert_ruins": {
+      "name": "Desert Ruins",
+      "description": "Ancient desert ruins with sandstone structures and mysterious artifacts"
+    },
+    "underwater": {
+      "name": "Underwater Kingdom",
+      "description": "An underwater realm with coral structures and aquatic elements"
+    },
+    "volcanic": {
+      "name": "Volcanic Wasteland",
+      "description": "A dangerous volcanic landscape with lava flows and rocky terrain"
+    }
+  },
+  "custom_prompts": {
+    "level_1": {
+      "background": "A {theme_description} background for the first level, bright and welcoming, detailed pixel art style, 16-bit retro gaming aesthetic",
+      "platform": "A sturdy {theme_description} platform suitable for jumping, textured surface with good contrast, pixel art style",
+      "enemy": "A basic {theme_description} enemy creature for the first level, not too intimidating, colorful pixel art design"
+    },
+    "level_2": {
+      "background": "A {theme_description} background for the second level, more challenging atmosphere, detailed pixel art with depth",
+      "platform": "A weathered {theme_description} platform with more detail, showing signs of wear, pixel art style",
+      "enemy": "A stronger {theme_description} enemy for the second level, more menacing appearance, detailed pixel art"
+    },
+    "level_3": {
+      "background": "A {theme_description} background for the final level, dark and foreboding atmosphere, highly detailed pixel art",
+      "platform": "An ancient {theme_description} platform with intricate details, mysterious and worn, pixel art style",
+      "enemy": "A powerful {theme_description} enemy for the final level, intimidating and dangerous, detailed pixel art",
+      "boss": "An imposing final boss with {theme_description} elements, large and threatening, highly detailed pixel art masterpiece"
+    }
+  },
+  "style_modifiers": {
+    "quality": "high quality, detailed, crisp",
+    "color_palette": "vibrant colors, good contrast",
+    "technical": "clean pixel art, no blur, sharp edges",
+    "size": "optimized for game sprites"
+  },
+  "current_theme": "sci_fi"
+}

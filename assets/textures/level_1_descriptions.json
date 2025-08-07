@@ -1,5 +1,5 @@
 {
-    "background": "A desert ruins background for level 1 with detailed pixel art style.",
-    "platform": "A desert ruins platform with 1 level of detail in pixel art style.",
-    "enemy": "A menacing desert ruins enemy character for level 1 in pixel art style."
+  "background": "A background for level 1",
+  "platform": "A platform for level 1",
+  "enemy": "A enemy for level 1"
 }

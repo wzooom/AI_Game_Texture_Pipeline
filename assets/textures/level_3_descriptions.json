@@ -1,6 +1,6 @@
 {
-    "background": "A desert ruins background for level 3 with detailed pixel art style.",
-    "platform": "A desert ruins platform with 3 level of detail in pixel art style.",
-    "enemy": "A menacing desert ruins enemy character for level 3 in pixel art style.",
-    "boss": "An imposing final boss with desert ruins elements in detailed pixel art style."
+  "background": "A background for level 3",
+  "platform": "A platform for level 3",
+  "enemy": "A enemy for level 3",
+  "boss": "A boss for level 3"
 }
